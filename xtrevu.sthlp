@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.1.2  07oct2022}{...}
+{* *! version 1.0.1  20feb2024}{...}
 {viewerjumpto "Syntax" "xtrevu##syntax"}{...}
 {viewerjumpto "Syntax" "xtrevu##description"}{...}
 {viewerjumpto "Examples" "xtrevu##examples"}{...}
