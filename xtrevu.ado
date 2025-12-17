@@ -1,4 +1,4 @@
-*! version 1.0.2  31oct2024  I I Bolotov
+*! version 1.1.0  20nov2025  I I Bolotov
 program define xtrevu, rclass
 	version 16.0
 	/*
@@ -14,7 +14,7 @@ program define xtrevu, rclass
 		Date: 20 February 2024                                                  
 	*/
 	// syntax                                                                   
-	if  trim(`"`0'"') == ""                                 {
+	if  trim(`"`0'"') == "" {
 		di as err "something required"
 		exit 100
 	}
@@ -22,7 +22,7 @@ program define xtrevu, rclass
 	loc    0   `1'
 	syntax																	///
 	varlist [if] [in] [,													///
-		replace PREfix(string)												///
+		replace PREFix(string)												///
 		Type(string) Xb(string) Residuals(string) Stdp(string) force		///
 		PREestimation(string asis) POSTestimation(string asis)				///
 	]
@@ -35,7 +35,9 @@ program define xtrevu, rclass
 		qui conf name  `prefix'
 	}
 	if `"`xb'`residuals'`stdp'"'                      != "" {
-		qui conf name  `xb'   `residuals'   `stdp'
+		foreach opt in "xb" "residuals" "stdp" {
+			if "``opt''" != "" qui conf name ``opt''
+		}
 	}
 	foreach var  in   "`xb'" "`residuals'" "`stdp'"         {
 		cap conf var   `var',  ex
@@ -45,19 +47,18 @@ program define xtrevu, rclass
 			exit 198
 		}
 	}
-	tempvar          panelvar touse predict
+	tempvar          panelvar touse predtmp
 	tempfile         tmpf
 	// invert the value order of xtset data                                     
 	preserve
 	qui xtset
-	if  "`r(panelvar)'" != ""       loc     panelvar  `r(panelvar)'
-	else                            qui g  `panelvar'  = 1
+	if  "`r(panelvar)'" != "" loc    panelvar  `r(panelvar)'
+	else                      qui g `panelvar'  = 1
 	loc timevar     `r(timevar)'
-	qui levelsof    `panelvar',     l(values)
+	qui levelsof    `panelvar',    l(values)
 	qui g           `touse'  = .
-	mata:            X       = .
-	foreach i    in `values'                          {
-		qui replace `touse'         = cond(`panelvar' == `i', 1, 0) `if' `in'
+	foreach i    in `values' {
+		qui replace `touse'        =   cond(`panelvar'==`i', 1, 0) `if' `in'
 		mata: for (i=1; i<=cols((v = tokens("`varlist'"))); i++) {;         ///
 			      if  (st_isnumvar(v[i]))                                   ///
 			           st_view( (x=J(0,0,. )), ., v[i], "`touse'");         ///
@@ -68,15 +69,15 @@ program define xtrevu, rclass
 	drop            `touse'
 	mata:            mata drop i v x
 	/* rename variables                                                       */
-	if `"`prefix'"'                 != ""             {
-		foreach var  of varl       `varlist'          {
+	if `"`prefix'"'     != "" {
+		foreach var  of varl       `varlist'  {
 			rename  `var'          `prefix'`var'
 		}
 		qui ds      `=ustrregexra("`varlist'","(^|\s)(.)","$1`prefix'$2",1)'
 		loc          varlist       `r(varlist)'
 	}
 	// run : command (if specified)                                             
-	if trim(`"`3'"')                != ""             {
+	if trim(`"`3'"')    != "" {
 		`preestimation'
 		di as txt _n "  all {bf:lags} should be interpreted as {bf:leads}"	///
 				  _n
@@ -84,30 +85,34 @@ program define xtrevu, rclass
 		/* run postestimation command/program (= multiple commands)           */
 		`postestimation'
 		cap conf mat e(b)
-		if ! _rc     {
+		if ! _rc {
 			foreach newvar in "xb" "residuals" "stdp" {
 				if  "``newvar''"    != ""             {
 					qui {
-						predict       `type'         `predict', `newvar'
-						cap conf var ``newvar'',      ex
-						if  ! _rc                     {
-							replace  ``newvar'' =    `predict'
-							drop      `predict'
+						predict       `type'      `predtmp', `newvar'
+						cap conf var ``newvar'',   ex
+						if  ! _rc {
+							replace  ``newvar'' = `predtmp'
+							drop      `predtmp'
 						}
-						else rename   `predict'                ``newvar''
+						else rename   `predtmp'             ``newvar''
 					}
 				}
 			}
 		}
 	}
 	// replace/generate new variables                                           
-	qui keep        `=cond(! strpos("`panelvar'","_"),"`panelvar'","")'		///
+	qui levelsof    `panelvar',    c l(pv)
+	qui keep        `=cond(wordcount("`pv'")>1,"`panelvar'","")'			///
 					`timevar'												///
 					`=cond(`"`replace'`prefix'"'!="", "`varlist'", "")'		///
-					`varlist' `xb' `residuals' `stdp'
-	qui save        `tmpf',         replace
-	****
+					`xb' `residuals' `stdp'
+	qui save        `tmpf', replace
 	restore
-	qui merge   1:1 `=cond(! strpos("`panelvar'","_"),"`panelvar'","")'		///
-					`timevar'       using `tmpf',  update replace  force nogen
+	cap merge   1:1 `=cond(wordcount("`pv'")>1,"`panelvar'","")'			///
+					`timevar' using `tmpf', update replace force nogen
+	if _rc {
+		di as err    "reversion of `varlist' failed"
+		error _rc
+	}
 end

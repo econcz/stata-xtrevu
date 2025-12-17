@@ -1,5 +1,5 @@
 {smcl}
-{* *! version 1.0.2  31oct2024}{...}
+{* *! version 1.1.0  20nov2025}{...}
 {viewerjumpto "Syntax" "xtrevu##syntax"}{...}
 {viewerjumpto "Syntax" "xtrevu##description"}{...}
 {viewerjumpto "Examples" "xtrevu##examples"}{...}
@@ -17,7 +17,7 @@ variables and/or estimate a command on them and save prediction, residuals, etc.
 [{varlist}]
 {ifin}
 [{cmd:,} {it:options}]
-{cmd::} {it:stata_cmd}
+[{cmd::} {it:stata_cmd}]
 
 {synoptset 35 tabbed}{...}
 {synopthdr}
@@ -73,16 +73,21 @@ a comprehensive post-estimation command can be executed, see
 
 {marker examples}{...}
 {title:Examples}
+        time series (reversing the order of observations in a varlist):
+        {cmd:. sysuse gnp96.dta, clear}
+        {cmd:. sysuse uslifeexp.dta, clear}
+        {cmd:. tsset  year}
+        {cmd:. xtrevu le*, replace}
 
         time series (a forward unit root test and an AP(1) model!):
         {cmd:. sysuse gnp96.dta, clear}
-        {cmd:. xtrevu gnp96, prefix(ru_): pperron ru_gnp96}
-        {cmd:. xtrevu gnp96, prefix(rv_): arima rv_gnp96, arima(1,0,0)}
+        {cmd:. xtrevu gnp96: pperron gnp96}
+        {cmd:. xtrevu gnp96: arima gnp96, arima(1,0,0)}
 
         panel data:
         {cmd:. sysuse xtline1.dta, clear}
-        {cmd:. xtrevu calories, prefix(rv_)}
         {cmd:. xtrevu calories: xtreg calories day}
+        {cmd:. xtrevu calories, pref(r_) pre(sum) xb(xb): xtreg r_calories day}
 
 {title:Author}
 
